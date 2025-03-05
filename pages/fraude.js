@@ -53,16 +53,6 @@ export default function FraudePage() {
             value={stats.total}
             icon="🚫"
           />
-          <StatCard
-            title="Monto Total"
-            value={`$${stats.montoTotal.toFixed(2)}`}
-            icon="💰"
-          />
-          <StatCard
-            title="Promedio por Transacción"
-            value={`$${stats.promedioMonto.toFixed(2)}`}
-            icon="📊"
-          />
         </div>
 
         {error && (

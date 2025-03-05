@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 
-const Layout = ({ children, title = 'Dashboard Banquito' }) => {
+const Layout = ({ children, title = '' }) => {
   const router = useRouter();
   
   // Verifica si la ruta actual coincide con la del enlace
