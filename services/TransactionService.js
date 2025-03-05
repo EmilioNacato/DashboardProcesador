@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // URLs base para microservicios
-const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1/historial';
-const TRANSACCION_API_URL = 'http://localhost:8081/api/v1/transacciones';
+const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://validafraude-alb-1539441676.us-east-2.elb.amazonaws.com/api/v1/historial';
+const TRANSACCION_API_URL = 'http://validafraude-alb-1539441676.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
 const extractDeepField = (obj, field) => {
