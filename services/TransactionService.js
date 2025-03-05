@@ -589,7 +589,6 @@ export const TransactionService = {
             console.error('Error al procesar monto de transacción completada:', e, t.monto);
           }
           
-          // Solo sumar si es un número válido
           return isNaN(monto) ? sum : sum + monto;
         }, 0);
       
@@ -608,7 +607,6 @@ export const TransactionService = {
     } catch (error) {
       console.error('Error al obtener estadísticas de transacciones:', error);
       
-      // En caso de error, retornar estadísticas por defecto
       return {
         totalTransacciones: 2,
         completadas: 0,
@@ -619,7 +617,6 @@ export const TransactionService = {
     }
   },
 
-  // Obtener historial de una transacción
   getTransactionHistory: async (codTransaccion) => {
     try {
       console.log(`Obteniendo historial de transacción ${codTransaccion}`);
@@ -670,6 +667,16 @@ export const TransactionService = {
     } catch (error) {
       console.error(`Error al obtener historial de transacción ${codTransaccion}:`, error);
       return [];
+    }
+  },
+
+  getFraudulentTransactions: async () => {
+    try {
+      const response = await axios.get(`${HISTORIAL_API_URL}/fraude`);
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener transacciones fraudulentas:', error);
+      throw error;
     }
   }
 }; 
