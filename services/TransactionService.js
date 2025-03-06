@@ -1,11 +1,5 @@
 import axios from 'axios';
 
-// Función para asegurar que las URLs usen HTTPS
-const ensureHttps = (url) => {
-  if (!url) return url;
-  return url.replace('http://', 'https://');
-};
-
 // Crear instancia de axios con configuración base
 const api = axios.create({
   timeout: 30000, // 30 segundos
@@ -14,20 +8,6 @@ const api = axios.create({
     'Accept': 'application/json'
   }
 });
-
-// Interceptor para peticiones - asegurar HTTPS
-api.interceptors.request.use(
-  (config) => {
-    // Forzar HTTPS en todas las URLs
-    if (config.url) {
-      config.url = ensureHttps(config.url);
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 // Interceptor para manejar errores
 api.interceptors.response.use(
@@ -46,7 +26,7 @@ api.interceptors.response.use(
 );
 
 // URLs base para microservicios (usando HTTPS)
-const HISTORIAL_API_URL = ensureHttps(process.env.NEXT_PUBLIC_API_URL) || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
+const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
 const TRANSACCION_API_URL = 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
