@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
-  timeout: 10000,
+  timeout: 30000, // 30 segundos
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -13,17 +13,19 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('Error en la petición:', {
+    console.error('Error detallado:', {
+      mensaje: error.message,
       url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      message: error.message
+      método: error.config?.method,
+      estado: error.response?.status,
+      datos: error.response?.data,
+      headers: error.config?.headers
     });
     return Promise.reject(error);
   }
 );
 
-// URLs base para microservicios
+// URLs base para microservicios (usando HTTPS)
 const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
 const TRANSACCION_API_URL = 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
