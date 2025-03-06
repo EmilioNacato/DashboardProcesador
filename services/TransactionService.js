@@ -144,133 +144,82 @@ function getCurrentDateISO() {
   return now.toISOString();
 }
 
+// Mapeo de estados
+const STATUS_MAPPING = {
+  'REC': 'RECIBIDA',
+  'COM': 'COMPLETADA',
+  'PEN': 'PENDIENTE',
+  'ERR': 'ERROR',
+  'FALLIDA': 'ERROR',
+  'RECHAZADA': 'ERROR'
+};
+
+// Función para obtener fechas correctas para el rango
+function getDateRange() {
+  const hoy = new Date();
+  const semanaAnterior = new Date(hoy);
+  semanaAnterior.setDate(hoy.getDate() - 7);
+  
+  return {
+    desde: semanaAnterior,
+    hasta: hoy
+  };
+}
+
+// Función para formatear transacción
+function formatTransaction(trx) {
+  return {
+    id: trx.codTransaccion || trx.id,
+    codTransaccion: trx.codigoUnicoTransaccion || trx.codTransaccion,
+    estado: STATUS_MAPPING[trx.estado] || trx.estado,
+    fechaCreacion: trx.fechaTransaccion,
+    fechaActualizacion: trx.fechaTransaccion,
+    monto: parseFloat(trx.monto || 0),
+    numeroTarjeta: trx.numeroTarjeta,
+    marca: trx.marca,
+    referencia: trx.referencia,
+    pais: trx.pais,
+    tipo: trx.tipo
+  };
+}
+
 export const TransactionService = {
   // Obtener transacciones con fechas personalizadas
   getTransactionsByDateRange: async (desde, hasta) => {
-    console.log('===============================================');
-    console.log(`TransactionService.getTransactionsByDateRange INVOCADO: ${new Date().toISOString()}`);
-    console.log('PARÁMETROS RECIBIDOS EXACTOS:', { 
-      desde: desde instanceof Date ? desde.toString() : 'No es un objeto Date',
-      hasta: hasta instanceof Date ? hasta.toString() : 'No es un objeto Date',
-      timestamp: Date.now() 
-    });
-    
     try {
-      // VERIFICACIÓN CRUCIAL: Quiero ver exactamente los componentes de las fechas recibidas
-      console.log('COMPONENTES DE FECHAS RECIBIDAS:', {
-        desdeYear: desde.getFullYear(),
-        desdeMonth: desde.getMonth() + 1, // +1 porque en JS es 0-11
-        desdeDay: desde.getDate(),
-        desdeHours: desde.getHours(),
-        desdeMinutes: desde.getMinutes(),
-        hastaYear: hasta.getFullYear(),
-        hastaMonth: hasta.getMonth() + 1, // +1 porque en JS es 0-11
-        hastaDay: hasta.getDate(),
-        hastaHours: hasta.getHours(),
-        hastaMinutes: hasta.getMinutes(),
-      });
+      // Usar fechas actuales si no se proporcionan
+      if (!desde || !hasta) {
+        const range = getDateRange();
+        desde = range.desde;
+        hasta = range.hasta;
+      }
+
+      const desdeStr = desde.toISOString().split('.')[0];
+      const hastaStr = hasta.toISOString().split('.')[0];
       
-      // IMPORTANTE: Construir strings EXACTOS basados en los componentes de los objetos Date
-      // SIN ningún ajuste de timezone y respetando formato 24h
-      const desdeStr = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, '0')}-${String(desde.getDate()).padStart(2, '0')}T${String(desde.getHours()).padStart(2, '0')}:${String(desde.getMinutes()).padStart(2, '0')}:00`;
-      const hastaStr = `${hasta.getFullYear()}-${String(hasta.getMonth() + 1).padStart(2, '0')}-${String(hasta.getDate()).padStart(2, '0')}T${String(hasta.getHours()).padStart(2, '0')}:${String(hasta.getMinutes()).padStart(2, '0')}:59`;
-      
-      console.log('STRINGS DE FECHAS PARA API (FORMATO 24H SIN MODIFICACIONES):', {
-        desdeOriginal: desde.toString(),
-        hastaOriginal: hasta.toString(),
-        desdeStr: desdeStr,
-        hastaStr: hastaStr,
-        desdeHoraExacta: `${String(desde.getHours()).padStart(2, '0')}:${String(desde.getMinutes()).padStart(2, '0')}`, // formato 24h
-        hastaHoraExacta: `${String(hasta.getHours()).padStart(2, '0')}:${String(hasta.getMinutes()).padStart(2, '0')}` // formato 24h
-      });
-      
-      // Construir URL del endpoint principal con las fechas EXACTAS
       const endpoint = `${TRANSACCION_API_URL}/recientes?desde=${encodeURIComponent(desdeStr)}&hasta=${encodeURIComponent(hastaStr)}`;
-      console.log('URL DEL ENDPOINT (VERIFICAR NO HAY HARDCODED DATES):', endpoint);
       
-      // Fetch al endpoint principal
       try {
         const response = await api.get(endpoint);
-        const resultData = response.data;
-        
-        // Si hay transacciones, procesarlas
-        if (resultData && Array.isArray(resultData) && resultData.length > 0) {
-          console.log(`Éxito: Se encontraron ${resultData.length} transacciones en el período especificado.`);
-          return resultData.map(trx => {
-            // Extraer datos importantes
-            const monto = extractDeepField(trx, 'monto');
-            const numeroTarjeta = extractDeepField(trx, 'numeroTarjeta');
-            const referencia = extractDeepField(trx, 'referencia');
-            
-            // NO modificamos las fechas originales
-            const fechaOriginal = trx.fechaCreacion || 
-                                  trx.fechaTransaccion || 
-                                  extractDeepField(trx, 'fechaCreacion');
-            
-            return {
-              id: trx.id,
-              codTransaccion: trx.codTransaccion || trx.id,
-              estado: trx.estado,
-              fechaCreacion: fechaOriginal, // Mantener la fecha original
-              fechaActualizacion: trx.fechaActualizacion,
-              monto: typeof monto === 'number' ? monto : (monto ? parseFloat(monto) : 0),
-              numeroTarjeta: numeroTarjeta || 'N/A',
-              marca: extractDeepField(trx, 'marca') || obtenerMarcaPorNumero(numeroTarjeta),
-              referencia: referencia || 'N/A',
-              mensaje: trx.mensaje || ''
-            };
-          });
-        } else {
-          console.log('No se encontraron transacciones recientes, buscando en histórico...');
+        if (response.data && Array.isArray(response.data)) {
+          return response.data.map(formatTransaction);
         }
       } catch (mainError) {
-        console.error('Error obteniendo datos del endpoint principal:', mainError, endpoint);
-      }
-      
-      // Si llegamos aquí, no hay transacciones en el endpoint principal, intentar con el histórico
-      console.log('Buscando en histórico...');
-      
-      // VERIFICAR DE NUEVO que estamos usando las fechas correctas antes de intentar histórico
-      console.log('Verificación de fechas para histórico:', {
-        desdeStr,
-        hastaStr,
-        objDesde: desde.toString(),
-        objHasta: hasta.toString()
-      });
-      
-      // Construir URL del endpoint histórico (SIN FECHAS HARDCODEADAS)
-      const historicalEndpoint = `${HISTORIAL_API_URL}/recientes?desde=${encodeURIComponent(desdeStr)}&hasta=${encodeURIComponent(hastaStr)}`;
-      console.log('URL del endpoint histórico (VERIFICAR NO HAY HARDCODED DATES):', historicalEndpoint);
-      
-      try {
-        // Fetch al endpoint histórico
-        const historicalResponse = await api.get(historicalEndpoint);
-        const historicalData = historicalResponse.data;
+        console.error('Error obteniendo datos del endpoint principal:', mainError);
         
-        if (historicalData && Array.isArray(historicalData) && historicalData.length > 0) {
-          console.log(`Éxito: Se encontraron ${historicalData.length} transacciones históricas.`);
-          return historicalData.map(trx => ({
-            id: trx.id || `hist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            fecha: trx.fecha || 'Desconocida',
-            tipo: trx.tipo || 'Desconocido',
-            monto: trx.valor || 0,
-            descripcion: trx.descripcion || 'Sin descripción',
-            establecimiento: trx.comercio || 'No disponible',
-            estado: trx.estado || 'Completado',
-            numeroTarjeta: trx.numeroTarjeta || 'XXXX-XXXX-XXXX-XXXX',
-            historico: true
-          }));
-        } else {
-          console.warn(`No se encontraron transacciones en el período especificado desde ${desdeStr} hasta ${hastaStr}`);
-          return [];
+        // Intentar con el endpoint histórico
+        const historicalEndpoint = `${HISTORIAL_API_URL}/recientes?desde=${encodeURIComponent(desdeStr)}&hasta=${encodeURIComponent(hastaStr)}`;
+        const historicalResponse = await api.get(historicalEndpoint);
+        
+        if (historicalResponse.data && Array.isArray(historicalResponse.data)) {
+          return historicalResponse.data.map(formatTransaction);
         }
-      } catch (historicalError) {
-        console.error('Error obteniendo datos históricos:', historicalError, historicalEndpoint);
-        return [];
       }
+      
+      return [];
     } catch (error) {
       console.error('Error en getTransactionsByDateRange:', error);
-      throw error;
+      return [];
     }
   },
 
