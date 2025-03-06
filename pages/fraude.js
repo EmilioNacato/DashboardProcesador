@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import TransactionTable from '../components/TransactionTable';
 import StatCard from '../components/StatCard';
 import TransactionChart from '../components/TransactionChart';
-import { getFraudulentTransactions } from '../services/TransactionService';
+import { TransactionService } from '../services/TransactionService';
 
 export default function FraudePage() {
   const [transactions, setTransactions] = useState([]);
@@ -19,12 +19,13 @@ export default function FraudePage() {
     const loadFraudulentTransactions = async () => {
       try {
         setLoading(true);
-        const data = await getFraudulentTransactions();
-        setTransactions(data);
+        const data = await TransactionService.getFraudulentTransactions();
+        console.log('Transacciones fraudulentas cargadas:', data);
+        setTransactions(data || []);
         
         // Calcular estadísticas
-        const total = data.length;
-        const montoTotal = data.reduce((sum, tx) => sum + (tx.monto || 0), 0);
+        const total = data ? data.length : 0;
+        const montoTotal = data ? data.reduce((sum, tx) => sum + (parseFloat(tx.monto) || 0), 0) : 0;
         
         setStats({
           total,
@@ -33,7 +34,7 @@ export default function FraudePage() {
         });
       } catch (err) {
         setError('Error al cargar las transacciones fraudulentas');
-        console.error(err);
+        console.error('Error en loadFraudulentTransactions:', err);
       } finally {
         setLoading(false);
       }

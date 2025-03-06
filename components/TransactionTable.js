@@ -68,57 +68,11 @@ const TransactionTable = ({ transactions }) => {
   // Formatear fecha
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    
     try {
-      // Si la cadena de fecha ya está en formato legible, retornarla directamente
-      // Por ejemplo, si ya viene como "DD/MM/YYYY, HH:MM:SS"
-      if (typeof dateString === 'string' && 
-          /\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}:\d{2}/.test(dateString)) {
-        return dateString;
-      }
-      
-      // Si tenemos formato PostgreSQL directo "YYYY-MM-DD HH:MM:SS.mmm"
-      // Convertirlo a formato legible sin perder la fecha original
-      if (typeof dateString === 'string' && 
-          /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(dateString)) {
-        console.log(`Fecha PostgreSQL detectada: ${dateString}`);
-        const parts = dateString.split(/[- :\.]/);
-        
-        // Formato español DD/MM/YYYY, HH:MM:SS - SIN CREAR OBJETO DATE INTERMEDIO
-        const year = parts[0];
-        const month = parts[1];
-        const day = parts[2];
-        const hour = parts.length > 3 ? parts[3] : "00";
-        const minute = parts.length > 4 ? parts[4] : "00";
-        const second = parts.length > 5 ? parts[5] : "00";
-        
-        return `${day}/${month}/${year}, ${hour}:${minute}:${second}`;
-      }
-      
-      // IMPORTANTE: Para ISO strings y otros formatos, mantener la conversión simple sin cambiar la fecha
-      if (typeof dateString === 'string') {
-        if (dateString.includes('T')) {
-          // Es un ISO string
-          const dateObj = new Date(dateString);
-          const day = dateObj.getDate().toString().padStart(2, '0');
-          const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-          const year = dateObj.getFullYear();
-          const hours = dateObj.getHours().toString().padStart(2, '0');
-          const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-          const seconds = dateObj.getSeconds().toString().padStart(2, '0');
-          
-          return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
-        } else {
-          // Otros formatos - intentar conservar la fecha original
-          return dateString;
-        }
-      }
-      
-      // Si todo lo demás falla, usar el valor original para no perder información
-      return dateString.toString();
+      const date = new Date(dateString);
+      return date.toLocaleString('es-ES');
     } catch (e) {
-      console.error(`Error formateando fecha: ${dateString}`, e);
-      return dateString || 'N/A'; // Devolver el valor original si hay error
+      return dateString;
     }
   };
 
@@ -158,6 +112,23 @@ const TransactionTable = ({ transactions }) => {
     }).format(numericAmount);
   };
 
+  const getStatusColor = (status) => {
+    switch (status?.toUpperCase()) {
+      case 'COMPLETADA':
+      case 'COM':
+        return 'bg-green-100 text-green-800';
+      case 'PENDIENTE':
+      case 'PEN':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'ERROR':
+      case 'ERR':
+      case 'FALLIDA':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="transaction-table-container">
       <div className="filters">
@@ -181,54 +152,55 @@ const TransactionTable = ({ transactions }) => {
         </select>
       </div>
 
-      <table className="transaction-table">
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Fecha</th>
-            <th>Marca</th>
-            <th>Tarjeta</th>
-            <th>Monto</th>
-            <th>Referencia</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentTransactions.length > 0 ? (
-            currentTransactions.map((transaction) => (
-              <tr key={transaction.id || transaction.codTransaccion}>
-                <td title={transaction.codTransaccion}>
-                  {transaction.codTransaccion}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarjeta</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">País</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {currentTransactions && currentTransactions.map((transaction, index) => (
+              <tr key={transaction.id || index} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {transaction.codTransaccion || transaction.id}
                 </td>
-                <td>{formatDate(transaction.fechaCreacion)}</td>
-                <td>{transaction.marca || 'VISA'}</td>
-                <td>{formatCardNumber(transaction.numeroTarjeta)}</td>
-                <td>{formatAmount(transaction.monto)}</td>
-                <td title={transaction.referencia}>{transaction.referencia || 'N/A'}</td>
-                <td>
-                  <span className={`status-badge ${getStatusClass(transaction.estado)}`}>
-                    {getStatusName(transaction.estado)}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatDate(transaction.fechaCreacion || transaction.fechaTransaccion)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(transaction.estado)}`}>
+                    {transaction.estado}
                   </span>
                 </td>
-                <td>
-                  <Link href={`/transaction/${transaction.codTransaccion}`} legacyBehavior>
-                    <a>
-                      <button className="view-btn">Ver</button>
-                    </a>
-                  </Link>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  ${transaction.monto?.toFixed(2)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {transaction.numeroTarjeta} ({transaction.marca})
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {transaction.referencia}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {transaction.pais || 'N/A'}
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="8" className="no-data">
-                No se encontraron transacciones
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+        {(!currentTransactions || currentTransactions.length === 0) && (
+          <div className="text-center py-4 text-gray-500">
+            No se encontraron transacciones
+          </div>
+        )}
+      </div>
 
       {totalPages > 1 && (
         <div className="pagination">
