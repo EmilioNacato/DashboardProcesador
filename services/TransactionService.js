@@ -1,8 +1,31 @@
 import axios from 'axios';
 
+// Crear instancia de axios con configuración base
+const api = axios.create({
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+});
+
+// Interceptor para manejar errores
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('Error en la petición:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.message
+    });
+    return Promise.reject(error);
+  }
+);
+
 // URLs base para microservicios
-const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
-const TRANSACCION_API_URL = 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
+const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
+const TRANSACCION_API_URL = 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
 const extractDeepField = (obj, field) => {
@@ -165,7 +188,7 @@ export const TransactionService = {
       
       // Fetch al endpoint principal
       try {
-        const response = await axios.get(endpoint);
+        const response = await api.get(endpoint);
         const resultData = response.data;
         
         // Si hay transacciones, procesarlas
@@ -219,7 +242,7 @@ export const TransactionService = {
       
       try {
         // Fetch al endpoint histórico
-        const historicalResponse = await axios.get(historicalEndpoint);
+        const historicalResponse = await api.get(historicalEndpoint);
         const historicalData = historicalResponse.data;
         
         if (historicalData && Array.isArray(historicalData) && historicalData.length > 0) {
@@ -292,7 +315,7 @@ export const TransactionService = {
       let transactionResponse = null;
       
       try {
-        transactionResponse = await axios.get(transactionEndpoint);
+        transactionResponse = await api.get(transactionEndpoint);
         console.log('Datos de transacción recibidos:', transactionResponse.data);
         transactionData = transactionResponse.data;
       } catch (err) {
@@ -306,7 +329,7 @@ export const TransactionService = {
       
       let historyData = [];
       try {
-        const historyResponse = await axios.get(historyEndpoint);
+        const historyResponse = await api.get(historyEndpoint);
         console.log('Historial de transacción recibido (datos completos):', JSON.stringify(historyResponse.data, null, 2));
         
         // Verificar en detalle los campos de cada registro
@@ -620,7 +643,7 @@ export const TransactionService = {
   getTransactionHistory: async (codTransaccion) => {
     try {
       console.log(`Obteniendo historial de transacción ${codTransaccion}`);
-      const response = await axios.get(`${HISTORIAL_API_URL}/transaccion/${codTransaccion}`);
+      const response = await api.get(`${HISTORIAL_API_URL}/transaccion/${codTransaccion}`);
       
       if (!response.data || response.data.length === 0) {
         console.warn(`No se encontró historial para la transacción ${codTransaccion}`);
@@ -672,7 +695,7 @@ export const TransactionService = {
 
   getFraudulentTransactions: async () => {
     try {
-      const response = await axios.get(`${HISTORIAL_API_URL}/fraude`);
+      const response = await api.get(`${HISTORIAL_API_URL}/fraude`);
       return response.data;
     } catch (error) {
       console.error('Error al obtener transacciones fraudulentas:', error);
