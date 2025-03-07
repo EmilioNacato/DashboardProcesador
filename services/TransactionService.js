@@ -2,31 +2,32 @@ import axios from 'axios';
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
-  timeout: 10000, // 10 segundos para desarrollo
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     'Access-Control-Allow-Origin': '*'
-  },
-  // Configuración para desarrollo local
-  proxy: process.env.NODE_ENV === 'development' ? {
-    protocol: 'http',
-    host: 'localhost',
-    port: 8080
-  } : false
+  }
 });
 
-// Interceptor para manejar errores
+// Interceptor para manejar errores y logs
 api.interceptors.request.use(
   (config) => {
+    // Asegurarse de que usamos HTTPS en producción
+    if (process.env.NODE_ENV === 'production') {
+      config.url = config.url.replace('http://', 'https://');
+      
+      // Agregar headers específicos para producción
+      config.headers = {
+        ...config.headers,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
+    }
+    
     console.log('Realizando petición a:', config.url);
     console.log('Método:', config.method);
     console.log('Headers:', config.headers);
-    
-    // Asegurarse de que usamos HTTPS en producción
-    if (process.env.NODE_ENV === 'production' && config.url.startsWith('http://')) {
-      config.url = config.url.replace('http://', 'https://');
-    }
     
     return config;
   },
@@ -66,6 +67,17 @@ const BASE_URL = process.env.NODE_ENV === 'production'
 
 const HISTORIAL_API_URL = `${BASE_URL}/api/v1/historial`;
 const TRANSACCION_API_URL = `${BASE_URL}/api/v1/transacciones`;
+
+// Función para verificar la disponibilidad del servidor
+const checkServerAvailability = async () => {
+  try {
+    const response = await api.get(`${BASE_URL}/actuator/health`);
+    return response.status === 200;
+  } catch (error) {
+    console.error('Error al verificar disponibilidad del servidor:', error);
+    return false;
+  }
+};
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
 const extractDeepField = (obj, field) => {
@@ -209,14 +221,20 @@ export const TransactionService = {
       const hastaStr = hasta.toISOString().split('.')[0];
       
       console.log('Consultando transacciones con fechas:', { desdeStr, hastaStr });
+      console.log('Ambiente:', process.env.NODE_ENV);
+      console.log('URL Base:', BASE_URL);
       
       // Verificar si el servidor está accesible
       try {
-        await api.options(TRANSACCION_API_URL);
+        const isAvailable = await checkServerAvailability();
+        if (!isAvailable) {
+          console.error('Servidor no accesible');
+          throw new Error('Servidor no accesible');
+        }
         console.log('Servidor accesible');
       } catch (error) {
-        console.error('Servidor no accesible:', error.message);
-        throw new Error(`Servidor no accesible: ${error.message}`);
+        console.error('Error al verificar disponibilidad:', error);
+        throw error;
       }
       
       const endpoint = `${TRANSACCION_API_URL}/recientes?desde=${encodeURIComponent(desdeStr)}&hasta=${encodeURIComponent(hastaStr)}`;
@@ -241,14 +259,14 @@ export const TransactionService = {
       return [];
     } catch (error) {
       console.error('Error en getTransactionsByDateRange:', error);
-      if (error.code === 'ERR_NETWORK') {
-        console.error('Error de red - detalles adicionales:', {
-          mensaje: error.message,
-          código: error.code,
-          stack: error.stack,
-          config: error.config
-        });
-      }
+      console.error('Detalles del error:', {
+        mensaje: error.message,
+        código: error.code,
+        respuesta: error.response?.data,
+        estado: error.response?.status,
+        headers: error.response?.headers,
+        config: error.config
+      });
       return [];
     }
   },
