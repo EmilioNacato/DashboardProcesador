@@ -1,27 +1,27 @@
 import axios from 'axios';
 
-// Crear instancia de axios con configuración base
+// URLs base para microservicios
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com';
+const HISTORIAL_API_URL = `${BASE_API_URL}/api/v1/historial`;
+const TRANSACCION_API_URL = `${BASE_API_URL}/api/v1/transacciones`;
+
+// Configuración de axios con mejores defaults para producción
 const api = axios.create({
-  timeout: 10000, // 10 segundos para desarrollo
+  timeout: 30000, // 30 segundos para producción
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  },
-  // Configuración para desarrollo local
-  proxy: process.env.NODE_ENV === 'development' ? {
-    protocol: 'http',
-    host: 'localhost',
-    port: 8080
-  } : false
+    'Accept': 'application/json'
+  }
 });
 
-// Interceptor para manejar errores
+// Interceptor para manejar errores con mejor logging
 api.interceptors.request.use(
   (config) => {
-    console.log('Realizando petición a:', config.url);
-    console.log('Método:', config.method);
-    console.log('Headers:', config.headers);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Realizando petición a:', config.url);
+      console.log('Método:', config.method);
+      console.log('Headers:', config.headers);
+    }
     return config;
   },
   (error) => {
@@ -32,30 +32,23 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    console.log('Respuesta recibida de:', response.config.url);
-    console.log('Status:', response.status);
-    console.log('Headers:', response.headers);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Respuesta recibida de:', response.config.url);
+      console.log('Status:', response.status);
+    }
     return response;
   },
   (error) => {
-    console.error('Error detallado:', {
+    console.error('Error en la respuesta:', {
       mensaje: error.message,
       url: error.config?.url,
       método: error.config?.method,
       estado: error.response?.status,
-      datos: error.response?.data,
-      headers: error.config?.headers,
-      código: error.code,
-      nombre: error.name,
-      stack: error.stack
+      datos: error.response?.data
     });
     return Promise.reject(error);
   }
 );
-
-// URLs base para microservicios (usando HTTP para desarrollo)
-const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
-const TRANSACCION_API_URL = 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
 const extractDeepField = (obj, field) => {
@@ -205,41 +198,68 @@ export const TransactionService = {
         await api.options(TRANSACCION_API_URL);
         console.log('Servidor accesible');
       } catch (error) {
-        console.error('Servidor no accesible:', error.message);
-        throw new Error(`Servidor no accesible: ${error.message}`);
+        console.error('Error de conectividad con el servidor:', error);
+        throw new Error('No se pudo establecer conexión con el servidor de transacciones');
       }
       
       const endpoint = `${TRANSACCION_API_URL}/recientes?desde=${encodeURIComponent(desdeStr)}&hasta=${encodeURIComponent(hastaStr)}`;
-      console.log('URL completa:', endpoint);
+      console.log('Consultando endpoint:', endpoint);
       
       const response = await api.get(endpoint);
-      console.log('Respuesta del servidor:', response.data);
+      
+      if (!response.data) {
+        console.error('Respuesta sin datos del servidor');
+        throw new Error('El servidor no retornó datos');
+      }
 
+      console.log('Datos recibidos del servidor:', response.data);
+
+      let transacciones = [];
+      
       if (Array.isArray(response.data)) {
-        return response.data.map(procesarTransaccion);
+        transacciones = response.data;
       } else if (typeof response.data === 'string') {
         try {
           const parsedData = JSON.parse(response.data);
           if (Array.isArray(parsedData)) {
-            return parsedData.map(procesarTransaccion);
+            transacciones = parsedData;
+          } else {
+            console.error('Datos parseados no son un array:', parsedData);
+            throw new Error('Formato de datos inválido');
           }
         } catch (e) {
           console.error('Error parseando respuesta JSON:', e);
+          throw new Error('Error procesando la respuesta del servidor');
         }
+      } else if (response.data.transacciones && Array.isArray(response.data.transacciones)) {
+        transacciones = response.data.transacciones;
+      } else {
+        console.error('Formato de respuesta no reconocido:', response.data);
+        throw new Error('Formato de respuesta no reconocido');
       }
+
+      console.log(`Se encontraron ${transacciones.length} transacciones`);
       
-      return [];
+      const transaccionesProcesadas = transacciones.map(trx => {
+        const transaccionProcesada = procesarTransaccion(trx);
+        console.log('Transacción procesada:', transaccionProcesada);
+        return transaccionProcesada;
+      });
+
+      return transaccionesProcesadas;
+      
     } catch (error) {
-      console.error('Error en getTransactionsByDateRange:', error);
-      if (error.code === 'ERR_NETWORK') {
-        console.error('Error de red - detalles adicionales:', {
-          mensaje: error.message,
-          código: error.code,
-          stack: error.stack,
-          config: error.config
+      console.error('Error obteniendo transacciones:', error);
+      if (error.response) {
+        console.error('Error de respuesta:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
         });
+      } else if (error.request) {
+        console.error('Error de solicitud:', error.request);
       }
-      return [];
+      throw error; // Propagar el error para manejarlo en el componente
     }
   },
 
@@ -545,65 +565,49 @@ export const TransactionService = {
   // Obtener estadísticas de transacciones
   getTransactionStats: async (desde, hasta) => {
     try {
-      console.log('Obteniendo transacciones para calcular estadísticas');
-      // Obtener transacciones del intervalo especificado
-      const transacciones = await TransactionService.getTransactionsByDateRange(desde, hasta);
-        
-      // Calcular estadísticas
-      const completadas = transacciones.filter(t => t.estado === 'COMPLETADA' || t.estado === 'COM').length;
-      const pendientes = transacciones.filter(t => t.estado === 'PENDIENTE' || t.estado === 'PEN').length;
-      const fallidas = transacciones.filter(t => t.estado === 'FALLIDA' || 
-        t.estado === 'ERR' || t.estado === 'RECHAZADA' || t.estado === 'ERROR').length;
+      const transactions = await TransactionService.getTransactionsByDateRange(desde, hasta);
       
-      // MODIFICACIÓN: Calcular el monto total sumando SOLAMENTE los montos de las transacciones COMPLETADAS
-      const montoTotal = transacciones
-        .filter(t => t.estado === 'COMPLETADA' || t.estado === 'COM') // Filtrar solo completadas
-        .reduce((sum, t) => {
-          // Asegurarse de que el monto sea un número válido
-          let monto = 0;
-          try {
-            // Intentar extraer el valor numérico del monto
-            if (t.monto !== undefined && t.monto !== null) {
-              // Si es un número, usarlo directamente
-              if (typeof t.monto === 'number') {
-                monto = t.monto;
-              } 
-              // Si es un string, intentar convertirlo
-              else if (typeof t.monto === 'string') {
-                // Eliminar cualquier carácter que no sea número o punto decimal
-                const sanitizedMonto = t.monto.replace(/[^\d.-]/g, '');
-                monto = parseFloat(sanitizedMonto);
-              }
-            }
-          } catch (e) {
-            console.error('Error al procesar monto de transacción completada:', e, t.monto);
-          }
-          
-          return isNaN(monto) ? sum : sum + monto;
-        }, 0);
-      
-      console.log('Monto total de transacciones COMPLETADAS:', montoTotal);
-      
-      const stats = {
-        totalTransacciones: transacciones.length,
-        completadas: completadas,
-        pendientes: pendientes,
-        fallidas: fallidas,
-        montoTotal: montoTotal
-      };
-      
+      if (!transactions || transactions.length === 0) {
+        console.log('No se encontraron transacciones para el período');
+        return {
+          totalTransacciones: 0,
+          completadas: 0,
+          pendientes: 0,
+          fallidas: 0,
+          montoTotal: 0
+        };
+      }
+
+      const stats = transactions.reduce((acc, trx) => {
+        // Incrementar total
+        acc.totalTransacciones++;
+
+        // Clasificar por estado
+        if (trx.estado === 'COMPLETADA' || trx.estado === 'COM') {
+          acc.completadas++;
+          // Sumar monto solo si la transacción está completada
+          acc.montoTotal += parseFloat(trx.monto) || 0;
+        } else if (trx.estado === 'PENDIENTE' || trx.estado === 'PEN') {
+          acc.pendientes++;
+        } else {
+          acc.fallidas++;
+        }
+
+        return acc;
+      }, {
+        totalTransacciones: 0,
+        completadas: 0,
+        pendientes: 0,
+        fallidas: 0,
+        montoTotal: 0
+      });
+
       console.log('Estadísticas calculadas:', stats);
       return stats;
-    } catch (error) {
-      console.error('Error al obtener estadísticas de transacciones:', error);
       
-      return {
-        totalTransacciones: 2,
-        completadas: 0,
-        pendientes: 1,
-        fallidas: 1,
-        montoTotal: 0
-      };
+    } catch (error) {
+      console.error('Error obteniendo estadísticas:', error);
+      throw error; // Propagar el error para manejarlo en el componente
     }
   },
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import TransactionTable from '../components/TransactionTable';
 import StatCard from '../components/StatCard';
-import TransactionChart from '../components/TransactionChart';
 import { TransactionService } from '../services/TransactionService';
 
 export default function FraudePage() {
@@ -23,7 +22,6 @@ export default function FraudePage() {
         console.log('Transacciones fraudulentas cargadas:', data);
         setTransactions(data || []);
         
-        // Calcular estadísticas
         const total = data ? data.length : 0;
         const montoTotal = data ? data.reduce((sum, tx) => sum + (parseFloat(tx.monto) || 0), 0) : 0;
         
@@ -67,12 +65,7 @@ export default function FraudePage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
         ) : (
-          <>
-            <div className="mb-8">
-              <TransactionChart transactions={transactions} />
-            </div>
-            <TransactionTable transactions={transactions} />
-          </>
+          <TransactionTable transactions={transactions} />
         )}
       </div>
     </Layout>

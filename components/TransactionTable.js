@@ -153,50 +153,55 @@ const TransactionTable = ({ transactions }) => {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead className="bg-gray-50">
+        <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarjeta</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">País</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">ID</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">Fecha</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">Estado</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">Monto</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">Tarjeta</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">Referencia</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b">País</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {currentTransactions && currentTransactions.map((transaction, index) => (
-              <tr key={transaction.id || index} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {transaction.codTransaccion || transaction.id}
+              <tr key={transaction.id || index} className="hover:bg-gray-50 transition-colors duration-200">
+                <td className="px-6 py-4 text-sm text-gray-900 border-b border-gray-100 min-w-[180px]">
+                  <div className="font-medium truncate">{transaction.codTransaccion || transaction.id}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(transaction.fechaCreacion || transaction.fechaTransaccion)}
+                <td className="px-6 py-4 text-sm text-gray-600 border-b border-gray-100 min-w-[150px]">
+                  <div>{formatDate(transaction.fechaCreacion || transaction.fechaTransaccion)}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(transaction.estado)}`}>
-                    {transaction.estado}
+                <td className="px-6 py-4 border-b border-gray-100 min-w-[120px]">
+                  <span className={`px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full ${getStatusColor(transaction.estado)}`}>
+                    {getStatusName(transaction.estado)}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  ${transaction.monto?.toFixed(2)}
+                <td className="px-6 py-4 text-sm text-gray-600 border-b border-gray-100 min-w-[100px]">
+                  <div className="font-medium">{formatAmount(transaction.monto)}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {transaction.numeroTarjeta} ({transaction.marca})
+                <td className="px-6 py-4 text-sm text-gray-600 border-b border-gray-100 min-w-[200px]">
+                  <div>
+                    <span className="font-medium">{formatCardNumber(transaction.numeroTarjeta)}</span>
+                    {transaction.marca && (
+                      <span className="ml-2 text-gray-500">({transaction.marca})</span>
+                    )}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {transaction.referencia}
+                <td className="px-6 py-4 text-sm text-gray-600 border-b border-gray-100 min-w-[200px]">
+                  <div className="truncate max-w-[250px]">{transaction.referencia}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {transaction.pais || 'N/A'}
+                <td className="px-6 py-4 text-sm text-gray-600 border-b border-gray-100 min-w-[80px]">
+                  <div>{transaction.pais || 'N/A'}</div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {(!currentTransactions || currentTransactions.length === 0) && (
-          <div className="text-center py-4 text-gray-500">
+          <div className="text-center py-8 text-gray-500">
             No se encontraron transacciones
           </div>
         )}
@@ -229,128 +234,105 @@ const TransactionTable = ({ transactions }) => {
       <style jsx>{`
         .transaction-table-container {
           background: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          padding: 20px;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+          padding: 24px;
           margin-bottom: 30px;
+          overflow-x: auto;
         }
         
         .filters {
           display: flex;
-          margin-bottom: 20px;
-          gap: 10px;
+          margin-bottom: 24px;
+          gap: 16px;
         }
         
         .search-input, .status-filter {
-          padding: 10px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
+          padding: 12px 16px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
           font-size: 14px;
-        }
-        
-        .search-input {
-          flex-grow: 1;
-        }
-        
-        .transaction-table {
           width: 100%;
-          border-collapse: collapse;
+          max-width: 400px;
+          transition: all 0.2s;
         }
         
-        .transaction-table th {
-          background-color: #f5f5f5;
-          padding: 12px;
-          text-align: left;
-          font-weight: 600;
-          border-bottom: 2px solid #ddd;
+        .search-input:focus, .status-filter:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
-        .transaction-table td {
-          padding: 12px;
-          border-bottom: 1px solid #eee;
+        .status-filter {
+          max-width: 200px;
+        }
+
+        table {
+          border-collapse: separate;
+          border-spacing: 0;
+          width: 100%;
+        }
+
+        th {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          max-width: 150px;
         }
-        
-        .status-badge {
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 0.8rem;
-          font-weight: 500;
-          display: inline-block;
+
+        td {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-        
-        .status-success {
-          background-color: #e6f7e6;
-          color: #2e7d32;
-        }
-        
-        .status-warning {
-          background-color: #fff8e1;
-          color: #ff8f00;
-        }
-        
-        .status-info {
-          background-color: #e3f2fd;
-          color: #1565c0;
-        }
-        
-        .status-danger {
-          background-color: #ffebee;
-          color: #c62828;
-        }
-        
-        .view-btn {
-          background-color: #3f51b5;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 6px 12px;
-          cursor: pointer;
-          font-size: 0.8rem;
-        }
-        
-        .view-btn:hover {
-          background-color: #303f9f;
+
+        .truncate {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         
         .pagination {
           display: flex;
           justify-content: center;
           align-items: center;
-          margin-top: 20px;
+          margin-top: 24px;
+          gap: 16px;
         }
         
         .pagination-btn {
-          background-color: #f5f5f5;
-          border: 1px solid #ddd;
-          border-radius: 4px;
           padding: 8px 16px;
-          cursor: pointer;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: white;
+          color: #4b5563;
           font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s;
         }
         
         .pagination-btn:hover:not(:disabled) {
-          background-color: #e0e0e0;
+          background: #f9fafb;
+          border-color: #d1d5db;
         }
         
         .pagination-btn:disabled {
-          color: #aaa;
+          opacity: 0.5;
           cursor: not-allowed;
         }
         
         .page-info {
-          margin: 0 15px;
+          color: #6b7280;
           font-size: 14px;
         }
         
-        .no-data {
-          text-align: center;
-          padding: 30px;
-          color: #666;
-          font-style: italic;
+        @media (max-width: 768px) {
+          .filters {
+            flex-direction: column;
+          }
+          
+          .search-input, .status-filter {
+            max-width: 100%;
+          }
         }
       `}</style>
     </div>

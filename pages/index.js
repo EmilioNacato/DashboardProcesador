@@ -104,190 +104,79 @@ export default function Home() {
       const desdeDate = parseDateTimeInput(dateRange.desde.fecha, dateRange.desde.hora);
       const hastaDate = parseDateTimeInput(dateRange.hasta.fecha, dateRange.hasta.hora);
       
-      console.log(`Obteniendo estadísticas desde ${desdeDate.toLocaleString()} hasta ${hastaDate.toLocaleString()}`);
+      console.log('Consultando datos desde:', desdeDate.toLocaleString(), 'hasta:', hastaDate.toLocaleString());
       
-      // Obtener estadísticas de transacciones para el rango de fechas seleccionado
+      // Obtener estadísticas
       const statsData = await TransactionService.getTransactionStats(desdeDate, hastaDate);
       
-      // Obtener transacciones reales para crear datos de gráfico basados en datos reales
+      if (!statsData) {
+        throw new Error('No se pudieron obtener las estadísticas');
+      }
+
+      setStats(statsData);
+      console.log('Estadísticas actualizadas:', statsData);
+
+      // Obtener transacciones para el gráfico
       const transactions = await TransactionService.getTransactionsByDateRange(desdeDate, hastaDate);
       
-      if (statsData) {
-        // MODIFICACIÓN IMPORTANTE: Calcular monto total solo de transacciones completadas
-        let montoCompletadas = 0;
-        if (transactions && transactions.length > 0) {
-          montoCompletadas = transactions
-            .filter(t => t.estado === 'COMPLETADA' || t.estado === 'COM')
-            .reduce((sum, t) => {
-              // Asegurarse de que el monto sea un número válido
-              const monto = typeof t.monto === 'number' ? t.monto : 
-                            (typeof t.monto === 'string' ? parseFloat(t.monto) : 0);
-              return sum + (isNaN(monto) ? 0 : monto);
-            }, 0);
-        }
-        
-        // Actualizar las estadísticas con el nuevo monto total (solo completadas)
-        setStats({
-          ...statsData,
-          montoTotal: montoCompletadas
-        });
-        
-        console.log('Estadísticas actualizadas con monto de transacciones completadas:', montoCompletadas);
-        
-        // MODIFICACIÓN IMPORTANTE: Generar datos para el gráfico basados en transacciones reales
-        // Agrupar transacciones por fecha
-        const transactionsByDay = {};
-        
-        if (transactions && transactions.length > 0) {
-          console.log('Total de transacciones recibidas:', transactions.length);
-          
-          // VERIFICAR LAS FECHAS DE CADA TRANSACCIÓN
-          transactions.forEach((transaction, index) => {
-            console.log(`Transacción ${index + 1} fecha original:`, transaction.fechaCreacion);
-          });
-          
-          transactions.forEach(transaction => {
-            if (!transaction.fechaCreacion) {
-              console.warn('Transacción sin fecha de creación:', transaction);
-              return;
-            }
-            
-            // IMPORTANTE: Procesar la fecha correctamente según su formato
-            let fecha;
-            let fechaStr;
-            
-            try {
-              // Intentar detectar el formato y convertir correctamente
-              if (typeof transaction.fechaCreacion === 'string') {
-                // Si es un string, puede tener varios formatos
-                if (transaction.fechaCreacion.includes('T')) {
-                  // Formato ISO
-                  fecha = new Date(transaction.fechaCreacion);
-                } else if (transaction.fechaCreacion.includes('/')) {
-                  // Formato DD/MM/YYYY
-                  const [day, month, year] = transaction.fechaCreacion.split('/');
-                  fecha = new Date(year, month - 1, day);
-                } else if (transaction.fechaCreacion.includes('-')) {
-                  // Formato YYYY-MM-DD o DD-MM-YYYY
-                  const parts = transaction.fechaCreacion.split('-');
-                  if (parts[0].length === 4) {
-                    // YYYY-MM-DD
-                    fecha = new Date(parts[0], parts[1] - 1, parts[2]);
-                  } else {
-                    // DD-MM-YYYY
-                    fecha = new Date(parts[2], parts[1] - 1, parts[0]);
-                  }
-                } else {
-                  // Último recurso: intentar parsear directamente
-                  fecha = new Date(transaction.fechaCreacion);
-                }
-              } else if (transaction.fechaCreacion instanceof Date) {
-                // Si ya es un objeto Date, usarlo directamente
-                fecha = transaction.fechaCreacion;
-              } else {
-                console.warn('Formato de fecha no reconocido:', transaction.fechaCreacion);
-                return;
-              }
-              
-              // Verificar si la fecha es válida
-              if (isNaN(fecha.getTime())) {
-                console.warn('Fecha inválida:', transaction.fechaCreacion);
-                return;
-              }
-              
-              // Extraer solo la fecha (sin hora) - en formato YYYY-MM-DD para agrupar
-              fechaStr = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
-              console.log(`Fecha procesada para transacción ${transaction.codTransaccion || transaction.id}: ${fechaStr}`);
-              
-            } catch (error) {
-              console.error('Error procesando fecha:', error, transaction.fechaCreacion);
-              return;
-            }
-            
-            // Inicializar el contador para esta fecha si no existe
-            if (!transactionsByDay[fechaStr]) {
-              transactionsByDay[fechaStr] = {
-                completadas: 0,
-                pendientes: 0,
-                fallidas: 0
-              };
-            }
-            
-            // Incrementar el contador según el estado
-            if (transaction.estado === 'COMPLETADA' || transaction.estado === 'COM') {
-              transactionsByDay[fechaStr].completadas++;
-            } else if (transaction.estado === 'PENDIENTE' || transaction.estado === 'PEN') {
-              transactionsByDay[fechaStr].pendientes++;
-            } else {
-              transactionsByDay[fechaStr].fallidas++;
-            }
-          });
-          
-          // Verificar qué fechas se encontraron
-          console.log('Fechas agrupadas:', Object.keys(transactionsByDay));
-          
-          // Convertir a formato para el gráfico - ORDENAR CRONOLÓGICAMENTE
-          const fechas = Object.keys(transactionsByDay).sort();
-          
-          // Verificar las fechas ordenadas
-          console.log('Fechas ordenadas para gráfico:', fechas);
-          
-          // Formatear las fechas para mostrar en el gráfico
-          const labels = fechas.map(fecha => {
-            const [year, month, day] = fecha.split('-');
-            // Formato más legible: DD/MM
-            return `${day}/${month}`;
-          });
-          
-          const completadas = fechas.map(fecha => transactionsByDay[fecha].completadas);
-          const pendientes = fechas.map(fecha => transactionsByDay[fecha].pendientes);
-          const fallidas = fechas.map(fecha => transactionsByDay[fecha].fallidas);
-          
-          // Verificar los datos finales para el gráfico
-          console.log('Datos finales para gráfico:', {
-            labels,
-            completadas,
-            pendientes,
-            fallidas
-          });
-          
-          // Preparar datos finales para el gráfico
-          const finalChartData = {
-            labels,
-            completadas,
-            pendientes,
-            fallidas
-          };
-          
-          setChartData(finalChartData);
-        } else {
-          // No hay transacciones, mostrar gráfico vacío
-          setChartData({
-            labels: [],
-            completadas: [],
-            pendientes: [],
-            fallidas: []
-          });
-        }
-      } else {
-        setError('No se encontraron datos de transacciones en este periodo.');
+      if (!transactions) {
+        throw new Error('No se pudieron obtener las transacciones');
       }
+
+      console.log('Transacciones obtenidas:', transactions.length);
+
+      // Agrupar transacciones por fecha
+      const transactionsByDay = transactions.reduce((acc, transaction) => {
+        if (!transaction.fechaCreacion) return acc;
+        
+        try {
+          const fecha = new Date(transaction.fechaCreacion);
+          const fechaStr = fecha.toISOString().split('T')[0];
+          
+          if (!acc[fechaStr]) {
+            acc[fechaStr] = {
+              completadas: 0,
+              pendientes: 0,
+              fallidas: 0
+            };
+          }
+          
+          if (transaction.estado === 'COMPLETADA' || transaction.estado === 'COM') {
+            acc[fechaStr].completadas++;
+          } else if (transaction.estado === 'PENDIENTE' || transaction.estado === 'PEN') {
+            acc[fechaStr].pendientes++;
+          } else {
+            acc[fechaStr].fallidas++;
+          }
+        } catch (e) {
+          console.error('Error procesando fecha de transacción:', e);
+        }
+        
+        return acc;
+      }, {});
+
+      // Convertir datos agrupados para el gráfico
+      const fechas = Object.keys(transactionsByDay).sort();
+      const chartData = {
+        labels: fechas.map(fecha => {
+          const [year, month, day] = fecha.split('-');
+          return `${day}/${month}`;
+        }),
+        completadas: fechas.map(fecha => transactionsByDay[fecha].completadas),
+        pendientes: fechas.map(fecha => transactionsByDay[fecha].pendientes),
+        fallidas: fechas.map(fecha => transactionsByDay[fecha].fallidas)
+      };
+
+      setChartData(chartData);
+      console.log('Datos del gráfico actualizados:', chartData);
+
+      // Actualizar timestamp
+      setLastUpdated(new Date().toLocaleString('es-ES'));
       
-      setLastUpdated(new Date().toLocaleString());
-      setIsLoading(false);
-    } catch (err) {
-      console.error('Error cargando datos del dashboard:', err);
-      setError('No se pudieron cargar los datos. Por favor verifica que el microservicio esté funcionando correctamente.');
-      
-      // Limpiar datos en caso de error
-      setStats({
-        totalTransacciones: 0,
-        completadas: 0,
-        pendientes: 0,
-        fallidas: 0,
-        montoTotal: 0
-      });
-      
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      setError(error.message || 'Error al cargar los datos');
+    } finally {
       setIsLoading(false);
     }
   };
