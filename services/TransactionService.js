@@ -54,7 +54,7 @@ api.interceptors.response.use(
 );
 
 // URLs base para microservicios (usando HTTP para desarrollo)
-const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
+const HISTORIAL_API_URL = 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
 const TRANSACCION_API_URL = 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
