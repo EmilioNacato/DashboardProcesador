@@ -365,7 +365,7 @@ export default function Transactions() {
       console.log('Llamando a getTransactionsByDateRange con valores exactos sin manipulación...');
       
       // URL esperada con valores exactos:
-      const expectedUrl = `http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones/recientes?desde=${encodeURIComponent(`${dateRange.desde.fecha}T${dateRange.desde.hora}:00`)}&hasta=${encodeURIComponent(`${dateRange.hasta.fecha}T${dateRange.hasta.hora}:59`)}`;
+      const expectedUrl = `https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones/recientes?desde=${encodeURIComponent(`${dateRange.desde.fecha}T${dateRange.desde.hora}:00`)}&hasta=${encodeURIComponent(`${dateRange.hasta.fecha}T${dateRange.hasta.hora}:59`)}`;
       console.log(`URL esperada con valores 100% exactos: ${expectedUrl}`);
       
       // Obtener transacciones con los valores exactos
