@@ -1,27 +1,27 @@
 import axios from 'axios';
 
-// URLs base para microservicios
-const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com';
-const HISTORIAL_API_URL = `${BASE_API_URL}/api/v1/historial`;
-const TRANSACCION_API_URL = `${BASE_API_URL}/api/v1/transacciones`;
-
-// Configuración de axios con mejores defaults para producción
+// Crear instancia de axios con configuración base
 const api = axios.create({
-  timeout: 30000, // 30 segundos para producción
+  timeout: 10000, // 10 segundos para desarrollo
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+    'Accept': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+  },
+  // Configuración para desarrollo local
+  proxy: process.env.NODE_ENV === 'development' ? {
+    protocol: 'http',
+    host: 'localhost',
+    port: 8080
+  } : false
 });
 
-// Interceptor para manejar errores con mejor logging
+// Interceptor para manejar errores
 api.interceptors.request.use(
   (config) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Realizando petición a:', config.url);
-      console.log('Método:', config.method);
-      console.log('Headers:', config.headers);
-    }
+    console.log('Realizando petición a:', config.url);
+    console.log('Método:', config.method);
+    console.log('Headers:', config.headers);
     return config;
   },
   (error) => {
@@ -32,23 +32,30 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Respuesta recibida de:', response.config.url);
-      console.log('Status:', response.status);
-    }
+    console.log('Respuesta recibida de:', response.config.url);
+    console.log('Status:', response.status);
+    console.log('Headers:', response.headers);
     return response;
   },
   (error) => {
-    console.error('Error en la respuesta:', {
+    console.error('Error detallado:', {
       mensaje: error.message,
       url: error.config?.url,
       método: error.config?.method,
       estado: error.response?.status,
-      datos: error.response?.data
+      datos: error.response?.data,
+      headers: error.config?.headers,
+      código: error.code,
+      nombre: error.name,
+      stack: error.stack
     });
     return Promise.reject(error);
   }
 );
+
+// URLs base para microservicios (usando HTTP para desarrollo)
+const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
+const TRANSACCION_API_URL = 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
 const extractDeepField = (obj, field) => {
