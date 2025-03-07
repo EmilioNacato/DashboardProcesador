@@ -22,6 +22,12 @@ api.interceptors.request.use(
     console.log('Realizando petición a:', config.url);
     console.log('Método:', config.method);
     console.log('Headers:', config.headers);
+    
+    // Asegurarse de que usamos HTTPS en producción
+    if (process.env.NODE_ENV === 'production' && config.url.startsWith('http://')) {
+      config.url = config.url.replace('http://', 'https://');
+    }
+    
     return config;
   },
   (error) => {
@@ -53,9 +59,13 @@ api.interceptors.response.use(
   }
 );
 
-// URLs base para microservicios (usando HTTP para desarrollo)
-const HISTORIAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/historial';
-const TRANSACCION_API_URL = 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com/api/v1/transacciones';
+// URLs base para microservicios
+const BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com'
+  : 'http://procesatransaccion-alb-785318717.us-east-2.elb.amazonaws.com';
+
+const HISTORIAL_API_URL = `${BASE_URL}/api/v1/historial`;
+const TRANSACCION_API_URL = `${BASE_URL}/api/v1/transacciones`;
 
 // Función mejorada para extraer campos anidados o transformados de un objeto de forma más exhaustiva
 const extractDeepField = (obj, field) => {
