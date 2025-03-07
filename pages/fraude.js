@@ -4,7 +4,6 @@ import TransactionTable from '../components/TransactionTable';
 import StatCard from '../components/StatCard';
 import { TransactionService } from '../services/TransactionService';
 
-
 export default function FraudePage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
